@@ -1,0 +1,743 @@
+esphome:
+  name: esp32c3-rolluik-zolder-achter
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+wifi:
+  power_save_mode: none
+  min_auth_mode: WPA2
+  fast_connect: True
+  reboot_timeout: 90s
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  ap:
+    ssid: "esphome-rolluik-zolder-achter"
+    password: ""
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_key
+
+logger:
+  level: INFO
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+globals:
+  - id: somfy1_open_secs
+    type: int
+    restore_value: yes
+    initial_value: '25'
+  - id: somfy1_close_secs
+    type: int
+    restore_value: yes
+    initial_value: '22'
+
+  - id: somfy2_open_secs
+    type: int
+    restore_value: yes
+    initial_value: '25'
+  - id: somfy2_close_secs
+    type: int
+    restore_value: yes
+    initial_value: '22'
+
+  - id: somfy1_current_pos
+    type: float
+    restore_value: yes
+    initial_value: '0'
+  - id: somfy2_current_pos
+    type: float
+    restore_value: yes
+    initial_value: '0'
+
+  - id: vent_pos
+    type: float
+    restore_value: yes
+    initial_value: '3'
+  - id: vent_close_ms
+    type: int
+    restore_value: yes
+    initial_value: '3000'
+
+  - id: somfy1_moving
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: somfy1_move_dir
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: somfy1_move_start_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: somfy1_move_start_pos
+    type: float
+    restore_value: no
+    initial_value: '0'
+
+  - id: somfy2_moving
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: somfy2_move_dir
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: somfy2_move_start_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: somfy2_move_start_pos
+    type: float
+    restore_value: no
+    initial_value: '0'
+
+  - id: somfy1_target_pos
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: somfy2_target_pos
+    type: float
+    restore_value: no
+    initial_value: '0'
+
+number:
+  - platform: template
+    id: somfy1_open_time_number
+    name: "Somfy 1 opentijd (s)"
+    min_value: 5
+    max_value: 60
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 25
+    set_action:
+      - lambda: |-
+          id(somfy1_open_secs) = (int)x;
+
+  - platform: template
+    id: somfy1_close_time_number
+    name: "Somfy 1 sluitijd (s)"
+    min_value: 5
+    max_value: 60
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 22
+    set_action:
+      - lambda: |-
+          id(somfy1_close_secs) = (int)x;
+
+  - platform: template
+    id: somfy2_open_time_number
+    name: "Somfy 2 opentijd (s)"
+    min_value: 5
+    max_value: 60
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 25
+    set_action:
+      - lambda: |-
+          id(somfy2_open_secs) = (int)x;
+
+  - platform: template
+    id: somfy2_close_time_number
+    name: "Somfy 2 sluitijd (s)"
+    min_value: 5
+    max_value: 60
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 22
+    set_action:
+      - lambda: |-
+          id(somfy2_close_secs) = (int)x;
+
+switch:
+  # Remote 1 - GPIO4/5/6
+  - platform: gpio
+    id: r1_btn_up
+    pin:
+      number: GPIO4
+      mode: OUTPUT_OPEN_DRAIN
+      inverted: true
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    id: r1_btn_stop
+    pin:
+      number: GPIO5
+      mode: OUTPUT_OPEN_DRAIN
+      inverted: true
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    id: r1_btn_down
+    pin:
+      number: GPIO6
+      mode: OUTPUT_OPEN_DRAIN
+      inverted: true
+    restore_mode: ALWAYS_OFF
+
+  # Remote 2 - GPIO1/2/3
+  - platform: gpio
+    id: r2_btn_up
+    pin:
+      number: GPIO1
+      mode: OUTPUT_OPEN_DRAIN
+      inverted: true
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    id: r2_btn_stop
+    pin:
+      number: GPIO2
+      mode: OUTPUT_OPEN_DRAIN
+      inverted: true
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    id: r2_btn_down
+    pin:
+      number: GPIO3
+      mode: OUTPUT_OPEN_DRAIN
+      inverted: true
+    restore_mode: ALWAYS_OFF
+
+button:
+  - platform: restart
+    name: "Reboot"
+
+  - platform: template
+    name: "Somfy 1 Up-Stop"
+    id: somfy1_up_stop_btn
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(somfy1_do_open).is_running() || id(somfy1_do_close).is_running() || id(somfy1_do_move_to_pos).is_running();'
+          then:
+            - script.execute: somfy1_do_stop
+          else:
+            - cover.open: somfy1
+
+  - platform: template
+    name: "Somfy 1 Down-Stop"
+    id: somfy1_down_stop_btn
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(somfy1_do_open).is_running() || id(somfy1_do_close).is_running() || id(somfy1_do_move_to_pos).is_running();'
+          then:
+            - script.execute: somfy1_do_stop
+          else:
+            - cover.close: somfy1
+
+  - platform: template
+    name: "Somfy 2 Up-Stop"
+    id: somfy2_up_stop_btn
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(somfy2_do_open).is_running() || id(somfy2_do_close).is_running() || id(somfy2_do_move_to_pos).is_running();'
+          then:
+            - script.execute: somfy2_do_stop
+          else:
+            - cover.open: somfy2
+
+  - platform: template
+    name: "Somfy 2 Down-Stop"
+    id: somfy2_down_stop_btn
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(somfy2_do_open).is_running() || id(somfy2_do_close).is_running() || id(somfy2_do_move_to_pos).is_running();'
+          then:
+            - script.execute: somfy2_do_stop
+          else:
+            - cover.close: somfy2
+
+  - platform: template
+    name: "Somfy 1 FORCE Up"
+    id: somfy1_force_up
+    on_press:
+      - switch.turn_on: r1_btn_up
+      - delay: 300ms
+      - switch.turn_off: r1_btn_up
+
+  - platform: template
+    name: "Somfy 1 FORCE Down"
+    id: somfy1_force_down
+    on_press:
+      - switch.turn_on: r1_btn_down
+      - delay: 300ms
+      - switch.turn_off: r1_btn_down
+
+  - platform: template
+    name: "Somfy 1 FORCE Stop"
+    id: somfy1_force_stop
+    on_press:
+      - switch.turn_on: r1_btn_stop
+      - delay: 300ms
+      - switch.turn_off: r1_btn_stop
+
+  - platform: template
+    name: "Somfy 2 FORCE Up"
+    id: somfy2_force_up
+    on_press:
+      - switch.turn_on: r2_btn_up
+      - delay: 300ms
+      - switch.turn_off: r2_btn_up
+
+  - platform: template
+    name: "Somfy 2 FORCE Down"
+    id: somfy2_force_down
+    on_press:
+      - switch.turn_on: r2_btn_down
+      - delay: 300ms
+      - switch.turn_off: r2_btn_down
+
+  - platform: template
+    name: "Somfy 2 FORCE Stop"
+    id: somfy2_force_stop
+    on_press:
+      - switch.turn_on: r2_btn_stop
+      - delay: 300ms
+      - switch.turn_off: r2_btn_stop
+
+script:
+  # ===== SOMFY 1 =====
+  - id: somfy1_do_open
+    mode: restart
+    then:
+      - script.stop: somfy1_do_close
+      - script.stop: somfy1_do_move_to_pos
+      - if:
+          condition:
+            lambda: 'return id(somfy1_current_pos) >= 99.9f;'
+          then:
+            - cover.template.publish:
+                id: somfy1
+                position: !lambda 'return id(somfy1_current_pos) / 100.0f;'
+          else:
+            - lambda: |-
+                id(somfy1_moving) = true;
+                id(somfy1_move_dir) = +1;
+                id(somfy1_move_start_ms) = millis();
+                id(somfy1_move_start_pos) = id(somfy1_current_pos);
+            - switch.turn_on: r1_btn_up
+            - delay: 300ms
+            - switch.turn_off: r1_btn_up
+            - delay: !lambda |-
+                return id(somfy1_open_secs) * 1000;
+            - lambda: |-
+                id(somfy1_current_pos) = 100.0f;
+                id(somfy1_moving) = false;
+                id(somfy1_move_dir) = 0;
+            - cover.template.publish:
+                id: somfy1
+                position: !lambda 'return id(somfy1_current_pos) / 100.0f;'
+
+  - id: somfy1_do_close
+    mode: restart
+    then:
+      - script.stop: somfy1_do_open
+      - script.stop: somfy1_do_move_to_pos
+      - if:
+          condition:
+            lambda: 'return id(somfy1_current_pos) <= 0.1f;'
+          then:
+            - cover.template.publish:
+                id: somfy1
+                position: !lambda 'return id(somfy1_current_pos) / 100.0f;'
+          else:
+            - lambda: |-
+                id(somfy1_moving) = true;
+                id(somfy1_move_dir) = -1;
+                id(somfy1_move_start_ms) = millis();
+                id(somfy1_move_start_pos) = id(somfy1_current_pos);
+            - switch.turn_on: r1_btn_down
+            - delay: 300ms
+            - switch.turn_off: r1_btn_down
+            - if:
+                condition:
+                  lambda: 'return id(somfy1_current_pos) <= (id(vent_pos) + 0.1f);'
+                then:
+                  - delay: !lambda |-
+                      return id(vent_close_ms);
+                else:
+                  - delay: !lambda |-
+                      return id(somfy1_close_secs) * 1000;
+            - lambda: |-
+                id(somfy1_current_pos) = 0.0f;
+                id(somfy1_moving) = false;
+                id(somfy1_move_dir) = 0;
+            - cover.template.publish:
+                id: somfy1
+                position: !lambda 'return id(somfy1_current_pos) / 100.0f;'
+
+  - id: somfy1_do_stop
+    mode: restart
+    then:
+      - script.stop: somfy1_do_open
+      - script.stop: somfy1_do_close
+      - script.stop: somfy1_do_move_to_pos
+      - switch.turn_on: r1_btn_stop
+      - delay: 300ms
+      - switch.turn_off: r1_btn_stop
+      - lambda: |-
+          if (id(somfy1_moving)) {
+            uint32_t elapsed = millis() - id(somfy1_move_start_ms);
+            float start = id(somfy1_move_start_pos);
+            float p = start;
+
+            if (id(somfy1_move_dir) > 0) {
+              float frac = (id(somfy1_open_secs) > 0) ? ((float)elapsed / (float)(id(somfy1_open_secs) * 1000)) : 0.0f;
+              if (frac < 0.0f) frac = 0.0f;
+              if (frac > 1.0f) frac = 1.0f;
+              p = start + frac * 100.0f;
+            } else if (id(somfy1_move_dir) < 0) {
+              float frac = (id(somfy1_close_secs) > 0) ? ((float)elapsed / (float)(id(somfy1_close_secs) * 1000)) : 0.0f;
+              if (frac < 0.0f) frac = 0.0f;
+              if (frac > 1.0f) frac = 1.0f;
+              p = start - frac * 100.0f;
+            }
+
+            if (p < 0.0f) p = 0.0f;
+            if (p > 100.0f) p = 100.0f;
+            id(somfy1_current_pos) = p;
+          } else {
+            if (id(somfy1_current_pos) <= 0.1f) id(somfy1_current_pos) = id(vent_pos);
+          }
+
+          id(somfy1_moving) = false;
+          id(somfy1_move_dir) = 0;
+      - cover.template.publish:
+          id: somfy1
+          position: !lambda 'return id(somfy1_current_pos) / 100.0f;'
+
+  - id: somfy1_do_move_to_pos
+    mode: restart
+    then:
+      - script.stop: somfy1_do_open
+      - script.stop: somfy1_do_close
+      - if:
+          condition:
+            lambda: 'return id(somfy1_target_pos) > id(somfy1_current_pos) + 0.5f;'
+          then:
+            - lambda: |-
+                id(somfy1_moving) = true;
+                id(somfy1_move_dir) = +1;
+                id(somfy1_move_start_ms) = millis();
+                id(somfy1_move_start_pos) = id(somfy1_current_pos);
+            - switch.turn_on: r1_btn_up
+            - delay: 300ms
+            - switch.turn_off: r1_btn_up
+            - delay: !lambda |-
+                float diff = id(somfy1_target_pos) - id(somfy1_move_start_pos);
+                return (int)((diff / 100.0f) * id(somfy1_open_secs) * 1000);
+            - switch.turn_on: r1_btn_stop
+            - delay: 300ms
+            - switch.turn_off: r1_btn_stop
+            - lambda: |-
+                id(somfy1_current_pos) = id(somfy1_target_pos);
+                id(somfy1_moving) = false;
+                id(somfy1_move_dir) = 0;
+            - cover.template.publish:
+                id: somfy1
+                position: !lambda 'return id(somfy1_current_pos) / 100.0f;'
+      - if:
+          condition:
+            lambda: 'return id(somfy1_target_pos) < id(somfy1_current_pos) - 0.5f;'
+          then:
+            - lambda: |-
+                id(somfy1_moving) = true;
+                id(somfy1_move_dir) = -1;
+                id(somfy1_move_start_ms) = millis();
+                id(somfy1_move_start_pos) = id(somfy1_current_pos);
+            - switch.turn_on: r1_btn_down
+            - delay: 300ms
+            - switch.turn_off: r1_btn_down
+            - delay: !lambda |-
+                float diff = id(somfy1_move_start_pos) - id(somfy1_target_pos);
+                return (int)((diff / 100.0f) * id(somfy1_close_secs) * 1000);
+            - switch.turn_on: r1_btn_stop
+            - delay: 300ms
+            - switch.turn_off: r1_btn_stop
+            - lambda: |-
+                id(somfy1_current_pos) = id(somfy1_target_pos);
+                id(somfy1_moving) = false;
+                id(somfy1_move_dir) = 0;
+            - cover.template.publish:
+                id: somfy1
+                position: !lambda 'return id(somfy1_current_pos) / 100.0f;'
+
+  # ===== SOMFY 2 =====
+  - id: somfy2_do_open
+    mode: restart
+    then:
+      - script.stop: somfy2_do_close
+      - script.stop: somfy2_do_move_to_pos
+      - if:
+          condition:
+            lambda: 'return id(somfy2_current_pos) >= 99.9f;'
+          then:
+            - cover.template.publish:
+                id: somfy2
+                position: !lambda 'return id(somfy2_current_pos) / 100.0f;'
+          else:
+            - lambda: |-
+                id(somfy2_moving) = true;
+                id(somfy2_move_dir) = +1;
+                id(somfy2_move_start_ms) = millis();
+                id(somfy2_move_start_pos) = id(somfy2_current_pos);
+            - switch.turn_on: r2_btn_up
+            - delay: 300ms
+            - switch.turn_off: r2_btn_up
+            - delay: !lambda |-
+                return id(somfy2_open_secs) * 1000;
+            - lambda: |-
+                id(somfy2_current_pos) = 100.0f;
+                id(somfy2_moving) = false;
+                id(somfy2_move_dir) = 0;
+            - cover.template.publish:
+                id: somfy2
+                position: !lambda 'return id(somfy2_current_pos) / 100.0f;'
+
+  - id: somfy2_do_close
+    mode: restart
+    then:
+      - script.stop: somfy2_do_open
+      - script.stop: somfy2_do_move_to_pos
+      - if:
+          condition:
+            lambda: 'return id(somfy2_current_pos) <= 0.1f;'
+          then:
+            - cover.template.publish:
+                id: somfy2
+                position: !lambda 'return id(somfy2_current_pos) / 100.0f;'
+          else:
+            - lambda: |-
+                id(somfy2_moving) = true;
+                id(somfy2_move_dir) = -1;
+                id(somfy2_move_start_ms) = millis();
+                id(somfy2_move_start_pos) = id(somfy2_current_pos);
+            - switch.turn_on: r2_btn_down
+            - delay: 300ms
+            - switch.turn_off: r2_btn_down
+            - if:
+                condition:
+                  lambda: 'return id(somfy2_current_pos) <= (id(vent_pos) + 0.1f);'
+                then:
+                  - delay: !lambda |-
+                      return id(vent_close_ms);
+                else:
+                  - delay: !lambda |-
+                      return id(somfy2_close_secs) * 1000;
+            - lambda: |-
+                id(somfy2_current_pos) = 0.0f;
+                id(somfy2_moving) = false;
+                id(somfy2_move_dir) = 0;
+            - cover.template.publish:
+                id: somfy2
+                position: !lambda 'return id(somfy2_current_pos) / 100.0f;'
+
+  - id: somfy2_do_stop
+    mode: restart
+    then:
+      - script.stop: somfy2_do_open
+      - script.stop: somfy2_do_close
+      - script.stop: somfy2_do_move_to_pos
+      - switch.turn_on: r2_btn_stop
+      - delay: 300ms
+      - switch.turn_off: r2_btn_stop
+      - lambda: |-
+          if (id(somfy2_moving)) {
+            uint32_t elapsed = millis() - id(somfy2_move_start_ms);
+            float start = id(somfy2_move_start_pos);
+            float p = start;
+
+            if (id(somfy2_move_dir) > 0) {
+              float frac = (id(somfy2_open_secs) > 0) ? ((float)elapsed / (float)(id(somfy2_open_secs) * 1000)) : 0.0f;
+              if (frac < 0.0f) frac = 0.0f;
+              if (frac > 1.0f) frac = 1.0f;
+              p = start + frac * 100.0f;
+            } else if (id(somfy2_move_dir) < 0) {
+              float frac = (id(somfy2_close_secs) > 0) ? ((float)elapsed / (float)(id(somfy2_close_secs) * 1000)) : 0.0f;
+              if (frac < 0.0f) frac = 0.0f;
+              if (frac > 1.0f) frac = 1.0f;
+              p = start - frac * 100.0f;
+            }
+
+            if (p < 0.0f) p = 0.0f;
+            if (p > 100.0f) p = 100.0f;
+            id(somfy2_current_pos) = p;
+          } else {
+            if (id(somfy2_current_pos) <= 0.1f) id(somfy2_current_pos) = id(vent_pos);
+          }
+
+          id(somfy2_moving) = false;
+          id(somfy2_move_dir) = 0;
+      - cover.template.publish:
+          id: somfy2
+          position: !lambda 'return id(somfy2_current_pos) / 100.0f;'
+
+  - id: somfy2_do_move_to_pos
+    mode: restart
+    then:
+      - script.stop: somfy2_do_open
+      - script.stop: somfy2_do_close
+      - if:
+          condition:
+            lambda: 'return id(somfy2_target_pos) > id(somfy2_current_pos) + 0.5f;'
+          then:
+            - lambda: |-
+                id(somfy2_moving) = true;
+                id(somfy2_move_dir) = +1;
+                id(somfy2_move_start_ms) = millis();
+                id(somfy2_move_start_pos) = id(somfy2_current_pos);
+            - switch.turn_on: r2_btn_up
+            - delay: 300ms
+            - switch.turn_off: r2_btn_up
+            - delay: !lambda |-
+                float diff = id(somfy2_target_pos) - id(somfy2_move_start_pos);
+                return (int)((diff / 100.0f) * id(somfy2_open_secs) * 1000);
+            - switch.turn_on: r2_btn_stop
+            - delay: 300ms
+            - switch.turn_off: r2_btn_stop
+            - lambda: |-
+                id(somfy2_current_pos) = id(somfy2_target_pos);
+                id(somfy2_moving) = false;
+                id(somfy2_move_dir) = 0;
+            - cover.template.publish:
+                id: somfy2
+                position: !lambda 'return id(somfy2_current_pos) / 100.0f;'
+      - if:
+          condition:
+            lambda: 'return id(somfy2_target_pos) < id(somfy2_current_pos) - 0.5f;'
+          then:
+            - lambda: |-
+                id(somfy2_moving) = true;
+                id(somfy2_move_dir) = -1;
+                id(somfy2_move_start_ms) = millis();
+                id(somfy2_move_start_pos) = id(somfy2_current_pos);
+            - switch.turn_on: r2_btn_down
+            - delay: 300ms
+            - switch.turn_off: r2_btn_down
+            - delay: !lambda |-
+                float diff = id(somfy2_move_start_pos) - id(somfy2_target_pos);
+                return (int)((diff / 100.0f) * id(somfy2_close_secs) * 1000);
+            - switch.turn_on: r2_btn_stop
+            - delay: 300ms
+            - switch.turn_off: r2_btn_stop
+            - lambda: |-
+                id(somfy2_current_pos) = id(somfy2_target_pos);
+                id(somfy2_moving) = false;
+                id(somfy2_move_dir) = 0;
+            - cover.template.publish:
+                id: somfy2
+                position: !lambda 'return id(somfy2_current_pos) / 100.0f;'
+
+cover:
+  - platform: template
+    id: somfy1
+    name: "Rolluik Somfy 1"
+    device_class: shutter
+    has_position: true
+    optimistic: false
+    assumed_state: true
+    open_action:
+      - script.execute: somfy1_do_open
+    close_action:
+      - script.execute: somfy1_do_close
+    stop_action:
+      - script.execute: somfy1_do_stop
+    position_action:
+      - lambda: 'id(somfy1_target_pos) = pos * 100.0f;'
+      - script.execute: somfy1_do_move_to_pos
+
+  - platform: template
+    id: somfy2
+    name: "Rolluik Somfy 2"
+    device_class: shutter
+    has_position: true
+    optimistic: false
+    assumed_state: true
+    open_action:
+      - script.execute: somfy2_do_open
+    close_action:
+      - script.execute: somfy2_do_close
+    stop_action:
+      - script.execute: somfy2_do_stop
+    position_action:
+      - lambda: 'id(somfy2_target_pos) = pos * 100.0f;'
+      - script.execute: somfy2_do_move_to_pos
+
+interval:
+  - interval: 200ms
+    then:
+      - if:
+          condition:
+            lambda: 'return id(somfy1_moving);'
+          then:
+            - lambda: |-
+                uint32_t elapsed = millis() - id(somfy1_move_start_ms);
+                float start = id(somfy1_move_start_pos);
+                float p = start;
+
+                if (id(somfy1_move_dir) > 0) {
+                  float frac = (id(somfy1_open_secs) > 0) ? ((float)elapsed / (float)(id(somfy1_open_secs) * 1000)) : 0.0f;
+                  if (frac < 0.0f) frac = 0.0f;
+                  if (frac > 1.0f) frac = 1.0f;
+                  p = start + frac * 100.0f;
+                } else if (id(somfy1_move_dir) < 0) {
+                  float frac = (id(somfy1_close_secs) > 0) ? ((float)elapsed / (float)(id(somfy1_close_secs) * 1000)) : 0.0f;
+                  if (frac < 0.0f) frac = 0.0f;
+                  if (frac > 1.0f) frac = 1.0f;
+                  p = start - frac * 100.0f;
+                }
+
+                if (p < 0.0f) p = 0.0f;
+                if (p > 100.0f) p = 100.0f;
+                id(somfy1_current_pos) = p;
+            - cover.template.publish:
+                id: somfy1
+                position: !lambda 'return id(somfy1_current_pos) / 100.0f;'
+
+      - if:
+          condition:
+            lambda: 'return id(somfy2_moving);'
+          then:
+            - lambda: |-
+                uint32_t elapsed = millis() - id(somfy2_move_start_ms);
+                float start = id(somfy2_move_start_pos);
+                float p = start;
+
+                if (id(somfy2_move_dir) > 0) {
+                  float frac = (id(somfy2_open_secs) > 0) ? ((float)elapsed / (float)(id(somfy2_open_secs) * 1000)) : 0.0f;
+                  if (frac < 0.0f) frac = 0.0f;
+                  if (frac > 1.0f) frac = 1.0f;
+                  p = start + frac * 100.0f;
+                } else if (id(somfy2_move_dir) < 0) {
+                  float frac = (id(somfy2_close_secs) > 0) ? ((float)elapsed / (float)(id(somfy2_close_secs) * 1000)) : 0.0f;
+                  if (frac < 0.0f) frac = 0.0f;
+                  if (frac > 1.0f) frac = 1.0f;
+                  p = start - frac * 100.0f;
+                }
+
+                if (p < 0.0f) p = 0.0f;
+                if (p > 100.0f) p = 100.0f;
+                id(somfy2_current_pos) = p;
+            - cover.template.publish:
+                id: somfy2
+                position: !lambda 'return id(somfy2_current_pos) / 100.0f;'

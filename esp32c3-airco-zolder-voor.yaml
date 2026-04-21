@@ -1,0 +1,152 @@
+substitutions:
+  mhi_device_id: "mhi_ac_zolder_voor"
+  device_id: "ac_zolder_voor"
+  device_name: "ac_av"
+
+esphome:
+  name: "esp32c3-airco-zolder-voor"
+  platformio_options:
+    board_build.flash_mode: dio
+  on_boot:
+    priority: -10
+    then:
+      - switch.turn_on: ac_example_active_mode
+  on_shutdown:
+    then:
+      - switch.turn_off: ac_example_active_mode
+
+wifi:
+  power_save_mode: none
+  min_auth_mode: WPA2
+  fast_connect: True
+  reboot_timeout: 90s
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  ap:
+    ssid: "esp32c3-airco-zolder-voor"
+    password: ""
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: github://hberntsen/mhi-ac-ctrl-esp32-c3@master
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+logger:
+  level: INFO
+
+button:
+  - platform: restart
+    name: "Reboot"
+
+MhiAcCtrl:
+  id: ${mhi_device_id}
+  use_long_frame: true
+  mosi_pin: GPIO6
+  miso_pin: GPIO5
+  sclk_pin: GPIO4
+
+climate:
+  - platform: MhiAcCtrl
+    mhi_ac_ctrl_id: ${mhi_device_id}
+    id: ${device_id}
+    name: "${device_name}"
+
+select:
+  - platform: MhiAcCtrl
+    mhi_ac_ctrl_id: ${mhi_device_id}
+    vanes_ud:
+      name: ${device_name} Vanes Up Down
+      id: ${device_id}_vanes_ud
+    vanes_lr:
+      name: ${device_name} Vanes Left Right
+      id: ${device_id}_vanes_lr
+
+sensor:
+  - platform: MhiAcCtrl
+    mhi_ac_ctrl_id: ${mhi_device_id}
+    frame_errors:
+      name: ${device_name} Frame errors
+    climate_current_temperature:
+      id: climate_current_temperature
+      filters:
+        - heartbeat: 10s
+        - round: 0
+    operation_data_timeouts:
+      name: ${device_name} operation data timeouts
+      filters:
+        - throttle: 5min
+    operation_data_visible_timeouts:
+      name: ${device_name} operation data visible timeouts
+    current:
+      name: ${device_name} current
+    power:
+      name: ${device_name} power
+    integrated_total_energy:
+      name: ${device_name} energy
+      filters:
+        - throttle: 60s
+    energy_used:
+      name: ${device_name} energy used
+    set_temperature:
+      name: ${device_name} set temperature
+    return_air_temperature:
+      name: ${device_name} return air temperature
+    indoor_fan_speed:
+      name: ${device_name} indoor fan speed
+    indoor_total_run_hours:
+      name: ${device_name} indoor total run hours
+    compressor_total_run_hours:
+      name: ${device_name} compressor total run hours
+    outdoor_air_temperature:
+      name: ${device_name} outdoor air temperature
+    discharge_pipe_temperature:
+      name: ${device_name} discharge pipe temperature
+    compressor_protection_state_number:
+      name: ${device_name} compressor protection state number
+    outdoor_fan_speed:
+      name: ${device_name} outdoor fan speed
+    outdoor_expansion_valve_pulse_rate:
+      name: ${device_name} outdoor expansion valve pulse rate
+    compressor_frequency:
+      name: ${device_name} compressor frequency
+    indoor_capillary_temperature:
+      name: ${device_name} indoor capillary temperature
+    indoor_u_bend_temperature:
+      name: ${device_name} indoor u-bend temperature
+    indoor_suction_header_temperature:
+      name: ${device_name} indoor suction header temperature
+    outdoor_heat_exchanger_temperature_1:
+      name: ${device_name} outdoor heat exchanger temperature 1
+    compressor_discharge_pipe_super_heat_temperature:
+      name: ${device_name} discharge pipe super heat temperature
+
+binary_sensor:
+  - platform: MhiAcCtrl
+    mhi_ac_ctrl_id: ${mhi_device_id}
+    defrosting:
+      name: ${device_name} defrosting
+
+switch:
+  - platform: MhiAcCtrl
+    mhi_ac_ctrl_id: ${mhi_device_id}
+    active_mode:
+      name: ${device_name} Active mode
+      id: ac_example_active_mode
+
+status_led:
+  pin:
+    number: 19

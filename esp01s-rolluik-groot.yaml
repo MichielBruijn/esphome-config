@@ -1,0 +1,374 @@
+esphome:
+  name: esp01s-rolluik-groot
+
+esp8266:
+  board: esp01_1m
+
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  power_save_mode: none
+  fast_connect: True
+  min_auth_mode: WPA2
+  reboot_timeout: 90s
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  ap:
+    ssid: "esphome-rolluik-groot"
+    password: ""
+
+captive_portal:
+
+globals:
+  - id: invert_dir
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+
+  - id: open_secs
+    type: int
+    restore_value: yes
+    initial_value: '25'
+
+  - id: close_secs
+    type: int
+    restore_value: yes
+    initial_value: '22'
+
+  - id: current_pos
+    type: float
+    restore_value: yes
+    initial_value: '0'
+
+  - id: moving
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+
+  - id: move_dir
+    type: int
+    restore_value: yes
+    initial_value: '0'
+
+  - id: move_start_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+  - id: move_start_pos
+    type: float
+    restore_value: yes
+    initial_value: '0'
+
+  - id: target_pos
+    type: float
+    restore_value: no
+    initial_value: '0'
+
+number:
+  - platform: template
+    id: open_time_number
+    name: "Rolluik opentijd (s)"
+    min_value: 5
+    max_value: 60
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 25
+    set_action:
+      - lambda: |-
+          id(open_secs) = (int)x;
+
+  - platform: template
+    id: close_time_number
+    name: "Rolluik sluitijd (s)"
+    min_value: 5
+    max_value: 60
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 22
+    set_action:
+      - lambda: |-
+          id(close_secs) = (int)x;
+
+switch:
+  - platform: template
+    id: invert_switch
+    name: "Rolluik richting omkeren"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lambda: 'id(invert_dir) = true;'
+    turn_off_action:
+      - lambda: 'id(invert_dir) = false;'
+
+  - platform: gpio
+    id: relay_up
+    name: "Rolluik Omhoog (relais)"
+    pin:
+      number: GPIO0
+      inverted: true
+    restore_mode: ALWAYS_OFF
+    interlock: [relay_down]
+    interlock_wait_time: 500ms
+    entity_category: diagnostic
+    disabled_by_default: true
+
+  - platform: gpio
+    id: relay_down
+    name: "Rolluik Omlaag (relais)"
+    pin:
+      number: GPIO2
+      inverted: true
+    restore_mode: ALWAYS_OFF
+    interlock: [relay_up]
+    interlock_wait_time: 500ms
+    entity_category: diagnostic
+    disabled_by_default: true
+
+button:
+  - platform: restart
+    name: "Reboot"
+
+  - platform: template
+    name: "Up-Stop"
+    id: up_stop_btn
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(relay_up).state || id(relay_down).state;'
+          then:
+            - cover.stop: awning
+          else:
+            - cover.open: awning
+
+  - platform: template
+    name: "Down-Stop"
+    id: down_stop_btn
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(relay_up).state || id(relay_down).state;'
+          then:
+            - cover.stop: awning
+          else:
+            - cover.close: awning
+
+script:
+  - id: do_stop_relays
+    then:
+      - switch.turn_off: relay_up
+      - switch.turn_off: relay_down
+
+  - id: do_open
+    mode: restart
+    then:
+      - script.execute: do_stop_relays
+      - script.stop: do_move_to_pos
+      - lambda: |-
+          id(moving) = true;
+          id(move_dir) = +1;
+          id(move_start_ms) = millis();
+          id(move_start_pos) = id(current_pos);
+      - if:
+          condition:
+            lambda: 'return !id(invert_dir);'
+          then:
+            - switch.turn_on: relay_up
+          else:
+            - switch.turn_on: relay_down
+      - delay: !lambda |-
+          return id(open_secs) * 1000;
+      - script.execute: do_stop_relays
+      - lambda: |-
+          id(current_pos) = 100.0f;
+          id(moving) = false;
+          id(move_dir) = 0;
+      - cover.template.publish:
+          id: awning
+          position: !lambda 'return id(current_pos) / 100.0f;'
+
+  - id: do_close
+    mode: restart
+    then:
+      - script.execute: do_stop_relays
+      - script.stop: do_move_to_pos
+      - lambda: |-
+          id(moving) = true;
+          id(move_dir) = -1;
+          id(move_start_ms) = millis();
+          id(move_start_pos) = id(current_pos);
+      - if:
+          condition:
+            lambda: 'return !id(invert_dir);'
+          then:
+            - switch.turn_on: relay_down
+          else:
+            - switch.turn_on: relay_up
+      - delay: !lambda |-
+          return id(close_secs) * 1000;
+      - script.execute: do_stop_relays
+      - lambda: |-
+          id(current_pos) = 0.0f;
+          id(moving) = false;
+          id(move_dir) = 0;
+      - cover.template.publish:
+          id: awning
+          position: !lambda 'return id(current_pos) / 100.0f;'
+
+  - id: do_move_to_pos
+    mode: restart
+    then:
+      - script.execute: do_stop_relays
+      - script.stop: do_open
+      - script.stop: do_close
+      - if:
+          condition:
+            lambda: 'return id(target_pos) > id(current_pos) + 0.5f;'
+          then:
+            - lambda: |-
+                id(moving) = true;
+                id(move_dir) = +1;
+                id(move_start_ms) = millis();
+                id(move_start_pos) = id(current_pos);
+            - if:
+                condition:
+                  lambda: 'return !id(invert_dir);'
+                then:
+                  - switch.turn_on: relay_up
+                else:
+                  - switch.turn_on: relay_down
+            - delay: !lambda |-
+                float diff = id(target_pos) - id(move_start_pos);
+                return (int)((diff / 100.0f) * id(open_secs) * 1000);
+            - script.execute: do_stop_relays
+            - lambda: |-
+                id(current_pos) = id(target_pos);
+                id(moving) = false;
+                id(move_dir) = 0;
+            - cover.template.publish:
+                id: awning
+                position: !lambda 'return id(current_pos) / 100.0f;'
+      - if:
+          condition:
+            lambda: 'return id(target_pos) < id(current_pos) - 0.5f;'
+          then:
+            - lambda: |-
+                id(moving) = true;
+                id(move_dir) = -1;
+                id(move_start_ms) = millis();
+                id(move_start_pos) = id(current_pos);
+            - if:
+                condition:
+                  lambda: 'return !id(invert_dir);'
+                then:
+                  - switch.turn_on: relay_down
+                else:
+                  - switch.turn_on: relay_up
+            - delay: !lambda |-
+                float diff = id(move_start_pos) - id(target_pos);
+                return (int)((diff / 100.0f) * id(close_secs) * 1000);
+            - script.execute: do_stop_relays
+            - lambda: |-
+                id(current_pos) = id(target_pos);
+                id(moving) = false;
+                id(move_dir) = 0;
+            - cover.template.publish:
+                id: awning
+                position: !lambda 'return id(current_pos) / 100.0f;'
+
+cover:
+  - platform: template
+    id: awning
+    name: "Rolluik"
+    device_class: awning
+
+    has_position: true
+    optimistic: false
+    assumed_state: true
+
+    open_action:
+      - script.execute: do_open
+
+    close_action:
+      - script.execute: do_close
+
+    stop_action:
+      - script.execute: do_stop_relays
+      - script.stop: do_open
+      - script.stop: do_close
+      - script.stop: do_move_to_pos
+      - lambda: |-
+          if (id(moving)) {
+            uint32_t elapsed = millis() - id(move_start_ms);
+            float start = id(move_start_pos);
+            float p = start;
+
+            if (id(move_dir) > 0) {
+              float frac = (id(open_secs) > 0) ? ((float)elapsed / (float)(id(open_secs) * 1000)) : 0.0f;
+              if (frac < 0.0f) frac = 0.0f;
+              if (frac > 1.0f) frac = 1.0f;
+              p = start + frac * 100.0f;
+            } else if (id(move_dir) < 0) {
+              float frac = (id(close_secs) > 0) ? ((float)elapsed / (float)(id(close_secs) * 1000)) : 0.0f;
+              if (frac < 0.0f) frac = 0.0f;
+              if (frac > 1.0f) frac = 1.0f;
+              p = start - frac * 100.0f;
+            }
+
+            if (p < 0.0f) p = 0.0f;
+            if (p > 100.0f) p = 100.0f;
+            id(current_pos) = p;
+          }
+          id(moving) = false;
+          id(move_dir) = 0;
+
+      - cover.template.publish:
+          id: awning
+          position: !lambda 'return id(current_pos) / 100.0f;'
+
+    position_action:
+      - lambda: 'id(target_pos) = pos * 100.0f;'
+      - script.execute: do_move_to_pos
+
+interval:
+  - interval: 200ms
+    then:
+      - if:
+          condition:
+            lambda: 'return id(moving);'
+          then:
+            - lambda: |-
+                uint32_t elapsed = millis() - id(move_start_ms);
+                float start = id(move_start_pos);
+                float p = start;
+
+                if (id(move_dir) > 0) {
+                  float frac = (id(open_secs) > 0) ? ((float)elapsed / (float)(id(open_secs) * 1000)) : 0.0f;
+                  if (frac < 0.0f) frac = 0.0f;
+                  if (frac > 1.0f) frac = 1.0f;
+                  p = start + frac * 100.0f;
+                } else if (id(move_dir) < 0) {
+                  float frac = (id(close_secs) > 0) ? ((float)elapsed / (float)(id(close_secs) * 1000)) : 0.0f;
+                  if (frac < 0.0f) frac = 0.0f;
+                  if (frac > 1.0f) frac = 1.0f;
+                  p = start - frac * 100.0f;
+                }
+
+                if (p < 0.0f) p = 0.0f;
+                if (p > 100.0f) p = 100.0f;
+                id(current_pos) = p;
+            - cover.template.publish:
+                id: awning
+                position: !lambda 'return id(current_pos) / 100.0f;'

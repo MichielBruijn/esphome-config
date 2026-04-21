@@ -1,0 +1,48 @@
+esphome:
+  name: esp32c3-deurbel
+  name_add_mac_suffix: false
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  power_save_mode: none
+  min_auth_mode: WPA2
+  reboot_timeout: 90s
+  fast_connect: True
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  ap:
+    ssid: "esphome-deurbel"
+    password: ""
+
+captive_portal:
+
+button:
+  - platform: restart
+    name: "Reboot"
+
+switch:
+  - platform: gpio
+    pin: GPIO3
+    name: "Relay GPIO3"
+    id: relay
+    inverted: true
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - delay: 500ms
+      - switch.turn_off: relay

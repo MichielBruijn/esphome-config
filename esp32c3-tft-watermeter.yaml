@@ -1,0 +1,191 @@
+esphome:
+  name: esp32c3-tft-watermeter
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  power_save_mode: none
+  min_auth_mode: WPA2
+  fast_connect: True
+  reboot_timeout: 90s
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  ap:
+    ssid: "esphome-watermeter"
+    password: ""
+
+captive_portal:
+
+globals:
+  - id: wm_total_l
+    type: uint64_t
+    restore_value: yes
+    initial_value: '0'
+  - id: wm_unsaved
+    type: uint16_t
+    restore_value: no
+    initial_value: '0'
+
+binary_sensor:
+  - platform: gpio
+    id: wm_pulse_in
+    internal: true
+    pin:
+      number: GPIO4
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_press:
+      then:
+        - lambda: |-
+            static uint32_t last_liter_ms = 0;
+            uint32_t now = millis();
+            if (last_liter_ms != 0) {
+              float dt_ms = (float)(now - last_liter_ms);
+              if (dt_ms > 0) {
+                id(wm_flow_lpm).publish_state(60000.0f / dt_ms);
+              }
+            }
+            last_liter_ms = now;
+            id(wm_total_l) += 1ULL;
+            id(wm_unsaved) += 1;
+            id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
+        - if:
+            condition:
+              lambda: 'return id(wm_unsaved) >= 100;'
+            then:
+              - globals.set:
+                  id: wm_total_l
+                  value: !lambda 'return id(wm_total_l);'
+              - lambda: 'id(wm_unsaved) = 0;'
+        - script.execute: zero_flow_timeout
+
+  - platform: gpio
+    id: boot_button
+    pin:
+      number: GPIO9
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Handmatige Correctie Knop"
+    internal: true
+    on_click:
+      - min_length: 50ms
+        max_length: 350ms
+        then:
+          - lambda: |-
+              id(wm_total_l) += 1ULL;
+              id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
+          - component.update: my_display
+          - logger.log: "Handmatige correctie: +1 liter"
+      - min_length: 800ms
+        max_length: 3000ms
+        then:
+          - lambda: |-
+              if (id(wm_total_l) > 0) {
+                id(wm_total_l) -= 1ULL;
+              }
+              id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
+          - component.update: my_display
+          - logger.log: "Handmatige correctie: -1 liter"
+
+sensor:
+  - platform: template
+    id: wm_flow_lpm
+    name: "Water debiet"
+    unit_of_measurement: "L/min"
+    accuracy_decimals: 2
+    update_interval: never
+
+  - platform: template
+    id: wm_total_pub_template
+    name: "Watermeter stand"
+    unit_of_measurement: "m³"
+    device_class: water
+    state_class: total_increasing
+    accuracy_decimals: 3
+    update_interval: 60s
+    lambda: 'return (float)id(wm_total_l) / 1000.0f;'
+
+number:
+  - platform: template
+    name: "Watermeter correctie (m³)"
+    id: wm_correction
+    optimistic: true
+    restore_value: true
+    min_value: 0
+    max_value: 10000
+    step: 0.001
+    mode: BOX
+    unit_of_measurement: "m³"
+    on_value:
+      then:
+        - globals.set:
+            id: wm_total_l
+            value: !lambda 'return (uint64_t) llroundf(x * 1000.0f);'
+        - lambda: 'id(wm_unsaved) = 0;'
+        - component.update: wm_total_pub_template
+
+script:
+  - id: zero_flow_timeout
+    mode: restart
+    then:
+      - delay: 15s
+      - lambda: 'id(wm_flow_lpm).publish_state(0.0f);'
+
+i2c:
+  sda: GPIO5
+  scl: GPIO6
+  scan: true
+
+font:
+  - file: "gfonts://Roboto Mono"
+    id: f16
+    size: 16
+  - file: "gfonts://Roboto Mono"
+    id: f14
+    size: 14
+
+button:
+  - platform: restart
+    name: "Reboot"
+
+display:
+  - platform: ssd1306_i2c
+    id: my_display
+    model: "SSD1306 72x40"
+    address: 0x3C
+    lambda: |-
+      float m3 = (float) id(wm_total_l) / 1000.0f;
+      char buf[16];
+      snprintf(buf, sizeof(buf), "%.3f", m3);
+
+      const char *dot = strchr(buf, '.');
+      char intpart[12], frac[8];
+      size_t ilen = dot ? (size_t)(dot - buf) : strlen(buf);
+      strncpy(intpart, buf, ilen); intpart[ilen] = '\0';
+      strcpy(frac, dot ? dot + 1 : "000");
+
+      int x0 = 10;
+      it.filled_rectangle(0, 0, 72, 20, Color::BLACK);
+      it.printf(x0, 2, id(f14), Color::WHITE, TextAlign::TOP_LEFT, "%s", intpart);
+      it.filled_rectangle(0, 20, 72, 20, Color::WHITE);
+      it.printf(x0, 22, id(f14), Color::BLACK, TextAlign::TOP_LEFT, "%s", frac);
