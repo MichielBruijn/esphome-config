@@ -85,7 +85,7 @@ binary_sensor:
       number: GPIO9
       mode: INPUT_PULLUP
       inverted: true
-    name: "Handmatige Correctie Knop"
+    name: "Manual Correction Button"
     internal: true
     on_click:
       - min_length: 50ms
@@ -95,7 +95,7 @@ binary_sensor:
               id(wm_total_l) += 1ULL;
               id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
           - component.update: my_display
-          - logger.log: "Handmatige correctie: +1 liter"
+          - logger.log: "Manual correction: +1 litre"
       - min_length: 800ms
         max_length: 3000ms
         then:
@@ -105,19 +105,19 @@ binary_sensor:
               }
               id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
           - component.update: my_display
-          - logger.log: "Handmatige correctie: -1 liter"
+          - logger.log: "Manual correction: -1 litre"
 
 sensor:
   - platform: template
     id: wm_flow_lpm
-    name: "Water debiet"
+    name: "Water flow rate"
     unit_of_measurement: "L/min"
     accuracy_decimals: 2
     update_interval: never
 
   - platform: template
     id: wm_total_pub_template
-    name: "Watermeter stand"
+    name: "Water meter reading"
     unit_of_measurement: "m³"
     device_class: water
     state_class: total_increasing
@@ -127,7 +127,7 @@ sensor:
 
 number:
   - platform: template
-    name: "Watermeter correctie (m³)"
+    name: "Water meter correction (m³)"
     id: wm_correction
     optimistic: true
     restore_value: true

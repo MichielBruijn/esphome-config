@@ -56,7 +56,7 @@ globals:
 sensor:
   - platform: template
     id: zout_afstand_cm
-    name: "Zout afstand (cm)"
+    name: "Salt distance (cm)"
     unit_of_measurement: "cm"
     accuracy_decimals: 1
     update_interval: never
@@ -68,7 +68,7 @@ sensor:
 
   - platform: template
     id: zout_niveau_pct
-    name: "Zout niveau (%)"
+    name: "Salt level (%)"
     unit_of_measurement: "%"
     accuracy_decimals: 0
     state_class: measurement
@@ -86,7 +86,7 @@ sensor:
 number:
   - platform: template
     id: meet_interval_s
-    name: "Zout meet-interval (s)"
+    name: "Salt measurement interval (s)"
     optimistic: true
     min_value: 5
     max_value: 300
@@ -95,7 +95,7 @@ number:
 
   - platform: template
     id: depth_full_number
-    name: "Zout afstand VOL (cm)"
+    name: "Salt distance FULL (cm)"
     optimistic: true
     min_value: 0
     max_value: 45
@@ -107,7 +107,7 @@ number:
 
   - platform: template
     id: depth_empty_number
-    name: "Zout afstand LEEG (cm)"
+    name: "Salt distance EMPTY (cm)"
     optimistic: true
     min_value: 5
     max_value: 45
@@ -134,7 +134,7 @@ script:
 
 button:
   - platform: template
-    name: "Meet nu"
+    name: "Measure now"
     on_press:
       - script.execute: do_meet
 

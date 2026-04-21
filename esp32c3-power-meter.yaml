@@ -52,17 +52,17 @@ dsmr:
 sensor:
   - platform: dsmr
     energy_delivered_tariff1:
-      name: "Energie Geleverd Laag (T1)"
+      name: "Energy delivered low tariff (T1)"
     energy_delivered_tariff2:
-      name: "Energie Geleverd Hoog (T2)"
+      name: "Energy delivered high tariff (T2)"
     energy_returned_tariff1:
-      name: "Energie Teruggeleverd Laag (T1)"
+      name: "Energy returned low tariff (T1)"
     energy_returned_tariff2:
-      name: "Energie Teruggeleverd Hoog (T2)"
+      name: "Energy returned high tariff (T2)"
     power_delivered:
-      name: "Actueel Vermogen"
+      name: "Current power"
     gas_delivered:
-      name: "Gas Verbruik"
+      name: "Gas consumption"
 
 button:
   - platform: restart

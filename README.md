@@ -1,12 +1,12 @@
-# ESPHome configuraties
+# ESPHome configurations
 
-Mijn ESPHome configuraties voor Home Assistant. Alle wachtwoorden en API-keys zitten in `secrets.yaml` (niet in git).
+My ESPHome configurations for Home Assistant. All passwords and API keys are stored in `secrets.yaml` (not in git).
 
-## Gebruik
+## Setup
 
-1. Kopieer `secrets.example.yaml` naar `secrets.yaml`
-2. Vul je eigen WiFi, API key en OTA password in
-3. Flash via ESPHome dashboard of CLI
+1. Copy `secrets.example.yaml` to `secrets.yaml`
+2. Fill in your WiFi credentials, API key and OTA password
+3. Flash via ESPHome dashboard or CLI
 
 ```bash
 esphome run <device>.yaml
@@ -16,189 +16,189 @@ esphome run <device>.yaml
 
 ## Devices
 
-### esp01s-rolluik-groot — Groot rolluik (relay, positiegestuurd)
+### esp01s-rolluik-groot — Large roller shutter (relay, position-tracked)
 
 **Hardware**
 - Board: ESP-01S (ESP8266, 1MB flash)
-- Relaismodule: 2-kanaals 5V relay (GPIO0 = omhoog, GPIO2 = omlaag, beide geïnverteerd)
+- Relay module: 2-channel 5V relay (GPIO0 = up, GPIO2 = down, both inverted)
 
-**Wat doet het**
-Bestuur een rolluik met twee relais. Positiebepaling gebeurt op basis van tijd (open/sluitduur instelbaar in Home Assistant). Ondersteunt:
-- Open / dicht / stop
-- Positie instellen (0–100 %)
-- Non-blocking positiebeweging via scripts
-- Richting omkeren (toggle in HA)
-- Veilige interlock: beide relais nooit tegelijk aan
+**What it does**
+Controls a roller shutter with two relays. Position tracking is time-based (open/close duration configurable from Home Assistant). Supports:
+- Open / close / stop
+- Set position (0–100%)
+- Non-blocking position movement via scripts
+- Direction invert toggle in HA
+- Safety interlock: both relays never active simultaneously
 
-**Aanpassen**
-- `open_time_number` en `close_time_number` in HA instellen op gemeten tijden van jouw motor
+**Customisation**
+Set `open_time_number` and `close_time_number` in HA to the measured travel times of your motor.
 
 ---
 
-### esp01s-rolluik-klein — Klein rolluik (relay, positiegestuurd)
+### esp01s-rolluik-klein — Small roller shutter (relay, position-tracked)
 
-Identiek aan `esp01s-rolluik-groot`, maar standaard iets kortere rijdtijden (23s open, 21s sluit).
+Identical to `esp01s-rolluik-groot` but with slightly shorter default travel times (23s open, 21s close).
 
 **Hardware**
 - Board: ESP-01S (ESP8266, 1MB flash)
-- Relaismodule: 2-kanaals 5V relay (GPIO0 / GPIO2)
+- Relay module: 2-channel 5V relay (GPIO0 / GPIO2)
 
 ---
 
-### esp01s-zonnescherm — Zonnescherm (relay, time_based)
+### esp01s-zonnescherm — Awning / sun screen (relay, time_based)
 
 **Hardware**
 - Board: ESP-01S (ESP8266, 1MB flash)
-- Relaismodule: 2-kanaals 5V relay (GPIO0 / GPIO2)
+- Relay module: 2-channel 5V relay (GPIO0 / GPIO2)
 
-**Wat doet het**
-Bestuur een zonnescherm/markies via ESPHome's ingebouwde `time_based` cover. Eenvoudiger dan de rolluik-variant: geen positiebewaking, alleen open/dicht/stop op basis van ingestelde tijden.
+**What it does**
+Controls an awning or sun screen using ESPHome's built-in `time_based` cover. Simpler than the roller shutter variant — no position tracking, just open/close/stop based on configured durations.
 
-**Aanpassen**
-- `open_duration` en `close_duration` in de YAML aanpassen op jouw motor
+**Customisation**
+Adjust `open_duration` and `close_duration` in the YAML to match your motor.
 
 ---
 
-### esp32c3-airco-zolder-achter — Mitsubishi airco zolder achter (MHI SPI)
+### esp32c3-airco-zolder-achter — Mitsubishi air conditioner attic rear (MHI SPI)
 
 **Hardware**
 - Board: ESP32-C3 DevKitM-1
-- Aansluiting: SPI direct op de CN105-connector van de Mitsubishi Heavy Industries (MHI) airconditioner
+- Connection: SPI directly on the CN105 connector of the Mitsubishi Heavy Industries (MHI) air conditioner
   - MOSI: GPIO6
   - MISO: GPIO5
   - SCLK: GPIO4
-- Status-LED: GPIO19 (wit, uit = OK)
+- Status LED: GPIO19 (white, off = OK)
 
 **Software**
-- Externe component: [hberntsen/mhi-ac-ctrl-esp32-c3](https://github.com/hberntsen/mhi-ac-ctrl-esp32-c3)
-- Framework: ESP-IDF (vereist voor deze component)
+- External component: [hberntsen/mhi-ac-ctrl-esp32-c3](https://github.com/hberntsen/mhi-ac-ctrl-esp32-c3)
+- Framework: ESP-IDF (required by this component)
 
-**Wat doet het**
-Volledige Home Assistant integratie van de airco:
-- Temperatuurregeling, stand, ventilatorsnelheid
-- Lamellen richting (horizontaal + verticaal, vereist `use_long_frame: true`)
-- Energiemeting (vermogen, stroom, kWh)
-- Diagnose-sensoren: compressorfrequentie, buistemperaturen, loopuren, etc.
-- Ontdooiingssensor
+**What it does**
+Full Home Assistant integration of the air conditioner:
+- Temperature control, mode, fan speed
+- Vane direction (horizontal + vertical, requires `use_long_frame: true`)
+- Energy monitoring (power, current, kWh)
+- Diagnostic sensors: compressor frequency, pipe temperatures, run hours, etc.
+- Defrost sensor
 
-**Werkt met**
-Mitsubishi Heavy Industries airconditioners met CN105-aansluiting. Getest op multi-split units.
+**Compatible with**
+Mitsubishi Heavy Industries air conditioners with a CN105 connector. Tested on multi-split units.
 
 ---
 
-### esp32c3-airco-zolder-voor — Mitsubishi airco zolder voor (MHI SPI)
+### esp32c3-airco-zolder-voor — Mitsubishi air conditioner attic front (MHI SPI)
 
-Identiek aan `esp32c3-airco-zolder-achter`, andere device-naam/ID zodat beide in HA naast elkaar bestaan.
+Identical to `esp32c3-airco-zolder-achter` but with a different device name/ID so both units appear separately in HA.
 
 **Hardware / Software**
-Zie `esp32c3-airco-zolder-achter` hierboven.
+See `esp32c3-airco-zolder-achter` above.
 
 ---
 
-### esp32c3-deurbel — Deurbel (relay puls)
+### esp32c3-deurbel — Doorbell (relay pulse)
 
 **Hardware**
 - Board: ESP32-C3 DevKitM-1
-- Relay: GPIO3 (geïnverteerd)
-- Aansluiting: in serie met of parallel aan bestaand drukknop-circuit
+- Relay: GPIO3 (inverted)
+- Wiring: in series with or in parallel to the existing doorbell button circuit
 
-**Wat doet het**
-Simuleert een drukknop-puls van 500ms. Activeer via HA-automatisering of direct via de schakelaar. Na 500ms gaat het relais automatisch weer uit.
+**What it does**
+Simulates a 500 ms button press. Trigger from an HA automation or directly via the switch entity. The relay turns off automatically after 500 ms.
 
-**Gebruik**
-- Schakel `Relay GPIO3` aan in HA → deurbel geeft één keer signaal
-- Combineer met een bewegingssensor of video-deurbel voor een slimme koppeling
+**Usage**
+- Turn on `Relay GPIO3` in HA → doorbell rings once
+- Combine with a motion sensor or video doorbell for smart integrations
 
 ---
 
-### esp32c3-power-meter — Slimme meter uitlezer (P1/DSMR)
+### esp32c3-power-meter — Smart meter reader (P1 / DSMR)
 
 **Hardware**
 - Board: ESP32-C3 DevKitM-1
-- P1-kabel: RJ11 naar serieel, signaal inverted, 5V voeding vanuit meter
+- P1 cable: RJ11 to serial, signal inverted, 5V powered from the meter
   - RX: GPIO3 (inverted, pull-up, 7-bit EVEN parity, 115200 baud)
 
-**Wat doet het**
-Leest de Nederlandse slimme energiemeter (DSMR P1-poort) uit en stuurt de gegevens naar Home Assistant:
-- Stroomverbruik/teruglevering laag- en hoogtarief (kWh)
-- Actueel vermogen (W)
-- Gasverbruik (m³)
+**What it does**
+Reads the Dutch smart energy meter (DSMR P1 port) and sends data to Home Assistant:
+- Electricity delivered / returned at low and high tariff (kWh)
+- Current power (W)
+- Gas consumption (m³)
 
-**Aanpassen**
-- DSMR v5 (meeste slimme meters) werkt out-of-the-box
-- Bij oudere meters eventueel `baud_rate` of pariteit aanpassen
-
----
-
-### esp32c3-rolluik-zolder-achter — 2x Somfy rolluik zolder (remote emulatie)
-
-**Hardware**
-- Board: ESP32-C3 DevKitM-1
-- Somfy remote 1 (open/stop/dicht): GPIO4 / GPIO5 / GPIO6 (open-drain, inverted)
-- Somfy remote 2 (open/stop/dicht): GPIO1 / GPIO2 / GPIO3 (open-drain, inverted)
-- Aansluiting: direct op de knoppen van de Somfy-afstandsbediening (soldeer draden op de knop-pads)
-
-**Wat doet het**
-Bestuur twee Somfy-rolluiken door de knoppen van twee bestaande afstandsbedieningen te simuleren. Positiebepaling op basis van tijd.
-
-Ondersteunt:
-- Open / dicht / stop voor beide rolluiken onafhankelijk
-- Positie instellen (0–100 %)
-- Ventilatie-positie: bij sluiten vanuit ventilatiepositie kortere sluitduur
-- FORCE-knoppen om de remote direct aan te sturen (bypass van positielogica)
-- Non-blocking scripts, beide rolluiken tegelijk bedienbaar
-
-**Aanpassen**
-- Open/sluitduur per rolluik instellen in HA via `Somfy 1/2 opentijd` en `sluitijd`
-- `vent_pos` (%) en `vent_close_ms` (ms) instellen voor jouw ventilatiepositie
+**Customisation**
+- DSMR v5 (most Dutch smart meters) works out of the box
+- For older meters you may need to adjust `baud_rate` or parity settings
 
 ---
 
-### esp32c3-tft-watermeter — Watermeter (puls + OLED display)
+### esp32c3-rolluik-zolder-achter — 2× Somfy roller shutter attic (remote emulation)
 
 **Hardware**
 - Board: ESP32-C3 DevKitM-1
-- Puls-ingang: GPIO4 (pull-up, inverted) — aansluiten op reed-contact of Hall-sensor van watermeter
-- OLED display: SSD1306 72×40px via I2C (SDA=GPIO5, SCL=GPIO6, adres 0x3C)
-- Boot-knop: GPIO9 (ingebouwd op DevKit) voor handmatige correctie
+- Somfy remote 1 (up/stop/down): GPIO4 / GPIO5 / GPIO6 (open-drain, inverted)
+- Somfy remote 2 (up/stop/down): GPIO1 / GPIO2 / GPIO3 (open-drain, inverted)
+- Wiring: solder wires directly onto the button pads of two existing Somfy remote controls
 
-**Wat doet het**
-Telt waterverbruik via pulsen (1 puls = 1 liter). Stuurt naar Home Assistant:
-- Actuele doorstroming (L/min)
-- Totale meterstand (m³, 3 decimalen)
+**What it does**
+Controls two Somfy roller shutters by emulating the button presses of two existing remote controls. Position tracking is time-based.
 
-Het OLED-display toont de meterstand lokaal in twee gedeelten (geheel / decimalen).
+Supports:
+- Open / close / stop for each shutter independently
+- Set position (0–100%)
+- Ventilation position: shortened close duration when closing from ventilation position
+- FORCE buttons to send direct pulses to the remote (bypasses position logic)
+- Non-blocking scripts — both shutters operable simultaneously
 
-De boot-knop op het bordje dient als handmatige correctie:
-- Kort klikken (< 350ms): +1 liter
-- Lang indrukken (800ms–3s): −1 liter
-
-Correctie van de beginstand via HA: schrijf de correcte m³-waarde naar `Watermeter correctie`.
-
-**Aanpassen**
-- Controleer of jouw meter 1 puls/liter geeft (meeste Nederlandse watermeters doen dit)
-- OLED-type en I2C-adres eventueel aanpassen
+**Customisation**
+- Set open/close duration per shutter in HA via `Somfy 1/2 open time` and `close time`
+- Set `vent_pos` (%) and `vent_close_ms` (ms) for your ventilation position
 
 ---
 
-### esp32c3-zout-niveau — Zoutniveau waterontharder (VL53L1X ToF)
+### esp32c3-tft-watermeter — Water meter (pulse counter + OLED display)
 
 **Hardware**
 - Board: ESP32-C3 DevKitM-1
-- Sensor: VL53L1X Time-of-Flight afstandssensor (I2C, SDA=GPIO4, SCL=GPIO3, adres 0x29)
-- Bevestiging: sensor van boven in de zoutbak van de waterontharder gericht naar beneden
+- Pulse input: GPIO4 (pull-up, inverted) — connect to reed switch or Hall sensor on water meter
+- OLED display: SSD1306 72×40 px via I2C (SDA=GPIO5, SCL=GPIO6, address 0x3C)
+- Boot button: GPIO9 (built-in on DevKit) for manual correction
+
+**What it does**
+Counts water consumption via pulses (1 pulse = 1 litre). Sends to Home Assistant:
+- Current flow rate (L/min)
+- Total meter reading (m³, 3 decimal places)
+
+The OLED display shows the meter reading locally, split into integer and decimal parts.
+
+The on-board boot button acts as a manual correction:
+- Short press (< 350 ms): +1 litre
+- Long press (800 ms–3 s): −1 litre
+
+To set the starting value, write the correct m³ value to `Water meter correction` in HA.
+
+**Customisation**
+- Verify your meter outputs 1 pulse per litre (most Dutch water meters do)
+- Adjust OLED type and I2C address if needed
+
+---
+
+### esp32c3-zout-niveau — Water softener salt level (VL53L1X ToF)
+
+**Hardware**
+- Board: ESP32-C3 DevKitM-1
+- Sensor: VL53L1X Time-of-Flight distance sensor (I2C, SDA=GPIO4, SCL=GPIO3, address 0x29)
+- Mounting: sensor mounted at the top of the salt tank pointing downward
 
 **Software**
 - Library: [pololu/VL53L1X](https://github.com/pololu/vl53l1x-arduino) via PlatformIO
-- Custom helper: `vl53l1x_helper.h` (zit in deze repo)
+- Custom helper: `vl53l1x_helper.h` (included in this repo)
 
-**Wat doet het**
-Meet de afstand tot het zoutoppervlak en rekent dit om naar een percentage (0% = leeg, 100% = vol). Kalibratiewaardes instelbaar vanuit HA:
-- `Zout afstand VOL (cm)`: afstand in cm als bak vol is (bijv. 2.5 cm)
-- `Zout afstand LEEG (cm)`: afstand in cm als bak leeg is (bijv. 34 cm)
+**What it does**
+Measures the distance to the salt surface and converts it to a percentage (0% = empty, 100% = full). Calibration values are configurable from HA:
+- `Salt distance FULL (cm)`: distance in cm when tank is full (e.g. 2.5 cm)
+- `Salt distance EMPTY (cm)`: distance in cm when tank is empty (e.g. 34 cm)
 
-Meet-interval instelbaar (5–300 seconden). Knop "Meet nu" voor directe meting.
+Measurement interval configurable (5–300 seconds). "Measure now" button available for an on-demand reading.
 
-**Aanpassen**
-- Kalibreer `depth_full_cm` en `depth_empty_cm` op jouw bak via de HA-interface
-- VL53L1X `Short` mode werkt tot ~130 cm; voor grotere bakken overschakelen naar `Medium` of `Long`
+**Customisation**
+- Calibrate `depth_full_cm` and `depth_empty_cm` for your tank via the HA interface
+- VL53L1X `Short` mode works up to ~130 cm; switch to `Medium` or `Long` for larger tanks

@@ -114,7 +114,7 @@ globals:
 number:
   - platform: template
     id: somfy1_open_time_number
-    name: "Somfy 1 opentijd (s)"
+    name: "Somfy 1 open time (s)"
     min_value: 5
     max_value: 60
     step: 1
@@ -127,7 +127,7 @@ number:
 
   - platform: template
     id: somfy1_close_time_number
-    name: "Somfy 1 sluitijd (s)"
+    name: "Somfy 1 close time (s)"
     min_value: 5
     max_value: 60
     step: 1
@@ -140,7 +140,7 @@ number:
 
   - platform: template
     id: somfy2_open_time_number
-    name: "Somfy 2 opentijd (s)"
+    name: "Somfy 2 open time (s)"
     min_value: 5
     max_value: 60
     step: 1
@@ -153,7 +153,7 @@ number:
 
   - platform: template
     id: somfy2_close_time_number
-    name: "Somfy 2 sluitijd (s)"
+    name: "Somfy 2 close time (s)"
     min_value: 5
     max_value: 60
     step: 1
@@ -165,7 +165,7 @@ number:
           id(somfy2_close_secs) = (int)x;
 
 switch:
-  # Remote 1 - GPIO4/5/6
+  # Remote 1 — GPIO4/5/6
   - platform: gpio
     id: r1_btn_up
     pin:
@@ -190,7 +190,7 @@ switch:
       inverted: true
     restore_mode: ALWAYS_OFF
 
-  # Remote 2 - GPIO1/2/3
+  # Remote 2 — GPIO1/2/3
   - platform: gpio
     id: r2_btn_up
     pin:
@@ -651,7 +651,7 @@ script:
 cover:
   - platform: template
     id: somfy1
-    name: "Rolluik Somfy 1"
+    name: "Shutter Somfy 1"
     device_class: shutter
     has_position: true
     optimistic: false
@@ -668,7 +668,7 @@ cover:
 
   - platform: template
     id: somfy2
-    name: "Rolluik Somfy 2"
+    name: "Shutter Somfy 2"
     device_class: shutter
     has_position: true
     optimistic: false

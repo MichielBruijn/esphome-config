@@ -38,7 +38,7 @@ globals:
 switch:
   - platform: template
     id: invert_switch
-    name: "Zonnescherm richting omkeren"
+    name: "Awning invert direction"
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
     turn_on_action:
@@ -48,7 +48,7 @@ switch:
 
   - platform: gpio
     id: relay_up
-    name: "Zonnescherm Omhoog (relais)"
+    name: "Awning Up (relay)"
     pin: { number: GPIO0, inverted: true }
     restore_mode: ALWAYS_OFF
     interlock: [relay_down]
@@ -58,7 +58,7 @@ switch:
 
   - platform: gpio
     id: relay_down
-    name: "Zonnescherm Omlaag (relais)"
+    name: "Awning Down (relay)"
     pin: { number: GPIO2, inverted: true }
     restore_mode: ALWAYS_OFF
     interlock: [relay_up]
@@ -97,7 +97,7 @@ button:
 cover:
   - platform: time_based
     id: awning
-    name: "Zonnescherm"
+    name: "Awning"
     device_class: awning
 
     open_action:
@@ -122,5 +122,5 @@ cover:
       - switch.turn_off: relay_up
       - switch.turn_off: relay_down
 
-    open_duration: 40s   # pas aan op je eigen motor
-    close_duration: 38s  # pas aan op je eigen motor
+    open_duration: 40s   # adjust to your motor's measured travel time
+    close_duration: 38s  # adjust to your motor's measured travel time
