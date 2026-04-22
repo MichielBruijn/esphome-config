@@ -31,7 +31,8 @@ Controls a roller shutter with two relays. Position tracking is time-based (open
 - Safety interlock: both relays never active simultaneously
 
 **Customisation**
-Set `open_time_number` and `close_time_number` in HA to the measured travel times of your motor.
+- Set `open_time_number` and `close_time_number` in HA to the measured travel times of your motor.
+- Set `slat_open_time_number` (ms) to the time it takes for the slats to rotate from fully closed to horizontal before the shutter starts rising. Default 3000 ms — increase if the shutter stops too low when moving from position 0, decrease if it overshoots.
 
 ---
 
@@ -151,6 +152,7 @@ Supports:
 **Customisation**
 - Set open/close duration per shutter in HA via `Somfy 1/2 open time` and `close time`
 - Set `vent_pos` (%) and `vent_close_ms` (ms) for your ventilation position
+- Set `Somfy 1/2 slat open time (ms)` to the time it takes for the slats to rotate from fully closed to horizontal before the shutter starts rising. Default 3000 ms — tune upward if position accuracy is off when opening from fully closed.
 
 ---
 

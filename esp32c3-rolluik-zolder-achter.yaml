@@ -111,6 +111,24 @@ globals:
     restore_value: no
     initial_value: '0'
 
+  - id: somfy1_slat_open_ms
+    type: int
+    restore_value: yes
+    initial_value: '3000'
+  - id: somfy2_slat_open_ms
+    type: int
+    restore_value: yes
+    initial_value: '3000'
+
+  - id: somfy1_slat_phase
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: somfy2_slat_phase
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
 number:
   - platform: template
     id: somfy1_open_time_number
@@ -163,6 +181,32 @@ number:
     set_action:
       - lambda: |-
           id(somfy2_close_secs) = (int)x;
+
+  - platform: template
+    id: somfy1_slat_open_time_number
+    name: "Somfy 1 slat open time (ms)"
+    min_value: 0
+    max_value: 8000
+    step: 100
+    optimistic: true
+    restore_value: true
+    initial_value: 3000
+    set_action:
+      - lambda: |-
+          id(somfy1_slat_open_ms) = (int)x;
+
+  - platform: template
+    id: somfy2_slat_open_time_number
+    name: "Somfy 2 slat open time (ms)"
+    min_value: 0
+    max_value: 8000
+    step: 100
+    optimistic: true
+    restore_value: true
+    initial_value: 3000
+    set_action:
+      - lambda: |-
+          id(somfy2_slat_open_ms) = (int)x;
 
 switch:
   # Remote 1 — GPIO4/5/6
@@ -443,6 +487,16 @@ script:
             - switch.turn_on: r1_btn_up
             - delay: 300ms
             - switch.turn_off: r1_btn_up
+            - if:
+                condition:
+                  lambda: 'return id(somfy1_move_start_pos) < 1.0f;'
+                then:
+                  - lambda: 'id(somfy1_slat_phase) = true;'
+                  - delay: !lambda 'return (uint32_t)id(somfy1_slat_open_ms);'
+                  - lambda: |-
+                      id(somfy1_slat_phase) = false;
+                      id(somfy1_move_start_ms) = millis();
+                      id(somfy1_move_start_pos) = 0.0f;
             - delay: !lambda |-
                 float diff = id(somfy1_target_pos) - id(somfy1_move_start_pos);
                 return (int)((diff / 100.0f) * id(somfy1_open_secs) * 1000);
@@ -609,6 +663,16 @@ script:
             - switch.turn_on: r2_btn_up
             - delay: 300ms
             - switch.turn_off: r2_btn_up
+            - if:
+                condition:
+                  lambda: 'return id(somfy2_move_start_pos) < 1.0f;'
+                then:
+                  - lambda: 'id(somfy2_slat_phase) = true;'
+                  - delay: !lambda 'return (uint32_t)id(somfy2_slat_open_ms);'
+                  - lambda: |-
+                      id(somfy2_slat_phase) = false;
+                      id(somfy2_move_start_ms) = millis();
+                      id(somfy2_move_start_pos) = 0.0f;
             - delay: !lambda |-
                 float diff = id(somfy2_target_pos) - id(somfy2_move_start_pos);
                 return (int)((diff / 100.0f) * id(somfy2_open_secs) * 1000);
@@ -688,7 +752,7 @@ interval:
     then:
       - if:
           condition:
-            lambda: 'return id(somfy1_moving);'
+            lambda: 'return id(somfy1_moving) && !id(somfy1_slat_phase);'
           then:
             - lambda: |-
                 uint32_t elapsed = millis() - id(somfy1_move_start_ms);
@@ -716,7 +780,7 @@ interval:
 
       - if:
           condition:
-            lambda: 'return id(somfy2_moving);'
+            lambda: 'return id(somfy2_moving) && !id(somfy2_slat_phase);'
           then:
             - lambda: |-
                 uint32_t elapsed = millis() - id(somfy2_move_start_ms);
