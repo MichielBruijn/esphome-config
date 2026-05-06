@@ -85,15 +85,6 @@ globals:
     restore_value: no
     initial_value: 'false'
 
-  - id: dead_close_ms
-    type: int
-    restore_value: yes
-    initial_value: '4000'
-
-  - id: dead_close_phase
-    type: bool
-    restore_value: no
-    initial_value: 'false'
 
 number:
   - platform: template
@@ -124,7 +115,7 @@ number:
 
   - platform: template
     id: slat_open_time_number
-    name: "Shutter slat open time (ms)"
+    name: "Shutter open dead time (ms)"
     min_value: 0
     max_value: 8000
     step: 100
@@ -135,18 +126,6 @@ number:
       - lambda: |-
           id(slat_open_ms) = (int)x;
 
-  - platform: template
-    id: close_dead_time_number
-    name: "Shutter close dead time (ms)"
-    min_value: 0
-    max_value: 8000
-    step: 100
-    optimistic: true
-    restore_value: true
-    initial_value: 4000
-    set_action:
-      - lambda: |-
-          id(dead_close_ms) = (int)x;
 
 switch:
   - platform: template
@@ -262,15 +241,6 @@ script:
             - switch.turn_on: relay_down
           else:
             - switch.turn_on: relay_up
-      - if:
-          condition:
-            lambda: 'return id(dead_close_ms) > 0;'
-          then:
-            - lambda: 'id(dead_close_phase) = true;'
-            - delay: !lambda 'return (uint32_t)id(dead_close_ms);'
-            - lambda: |-
-                id(dead_close_phase) = false;
-                id(move_start_ms) = millis();
       - delay: !lambda |-
           return id(close_secs) * 1000;
       - script.execute: do_stop_relays
@@ -286,7 +256,7 @@ script:
     mode: restart
     then:
       - lambda: |-
-          if (id(moving) && !id(slat_phase) && !id(dead_close_phase)) {
+          if (id(moving) && !id(slat_phase)) {
             uint32_t elapsed = millis() - id(move_start_ms);
             float start = id(move_start_pos);
             float p = start;
@@ -361,16 +331,6 @@ script:
                   - switch.turn_on: relay_down
                 else:
                   - switch.turn_on: relay_up
-            - if:
-                condition:
-                  lambda: 'return id(dead_close_ms) > 0;'
-                then:
-                  - lambda: 'id(dead_close_phase) = true;'
-                  - delay: !lambda 'return (uint32_t)id(dead_close_ms);'
-                  - lambda: |-
-                      id(dead_close_phase) = false;
-                      id(move_start_ms) = millis();
-                      id(move_start_pos) = id(current_pos);
             - delay: !lambda |-
                 float diff = id(move_start_pos) - id(target_pos);
                 return (int)((diff / 100.0f) * id(close_secs) * 1000);
@@ -406,7 +366,6 @@ cover:
       - script.stop: do_move_to_pos
       - lambda: |-
           id(slat_phase) = false;
-          id(dead_close_phase) = false;
           if (id(moving)) {
             uint32_t elapsed = millis() - id(move_start_ms);
             float start = id(move_start_pos);
@@ -444,7 +403,7 @@ interval:
     then:
       - if:
           condition:
-            lambda: 'return id(moving) && !id(slat_phase) && !id(dead_close_phase);'
+            lambda: 'return id(moving) && !id(slat_phase);'
           then:
             - lambda: |-
                 uint32_t elapsed = millis() - id(move_start_ms);
