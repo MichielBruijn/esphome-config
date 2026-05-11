@@ -3,6 +3,7 @@ esphome:
   platformio_options:
     lib_deps:
       - pololu/VL53L1X @ ^1.3.1
+      - ESP32Async/AsyncTCP @ 3.3.1
     lib_ldf_mode: deep+
   includes:
     - vl53l1x_helper.h
