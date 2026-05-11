@@ -95,8 +95,19 @@ binary_sensor:
       - min_length: 50ms
         max_length: 350ms
         then:
-          - script.execute: display_timeout
-          - logger.log: "Display aan voor 60s"
+          - if:
+              condition:
+                lambda: 'return !id(display_on);'
+              then:
+                - script.execute: display_timeout
+                - logger.log: "Display aan voor 60s"
+              else:
+                - lambda: |-
+                    id(wm_total_l) += 1ULL;
+                    id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
+                - script.execute: display_timeout
+                - component.update: my_display
+                - logger.log: "Handmatige correctie: +1 liter"
       - min_length: 800ms
         max_length: 3000ms
         then:
@@ -105,6 +116,7 @@ binary_sensor:
                 id(wm_total_l) -= 1ULL;
               }
               id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
+          - script.execute: display_timeout
           - component.update: my_display
           - logger.log: "Handmatige correctie: -1 liter"
 
@@ -183,7 +195,6 @@ display:
     id: my_display
     model: "SSD1306 72x40"
     address: 0x3C
-    brightness: 0.5
     lambda: |-
       if (!id(display_on)) {
         it.fill(Color::BLACK);
