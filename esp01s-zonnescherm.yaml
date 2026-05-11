@@ -80,7 +80,7 @@ button:
     name: "Reboot"
 
   - platform: template
-    name: "Up/Stop"
+    name: "Up-Stop"
     id: up_stop_btn
     on_press:
       - if:
@@ -92,7 +92,7 @@ button:
             - cover.open: awning
 
   - platform: template
-    name: "Down/Stop"
+    name: "Down-Stop"
     id: down_stop_btn
     on_press:
       - if:
