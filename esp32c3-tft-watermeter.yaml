@@ -6,13 +6,6 @@ esp32:
   framework:
     type: arduino
 
-# web_server:
-#   auth:
-#     username: !secret http_username
-#     password: !secret http_password
-#   port: 80
-#   version: 2
-
 logger:
   level: INFO
 
@@ -28,7 +21,7 @@ wifi:
   power_save_mode: none
   min_auth_mode: WPA2
   fast_connect: True
-  reboot_timeout: 90s   # reboot als WiFi 90s niet werkt
+  reboot_timeout: 90s
   networks:
     - ssid: !secret wifi_ssid
       password: !secret wifi_password
@@ -37,7 +30,6 @@ wifi:
     password: ""
 
 captive_portal:
-  
 
 globals:
   - id: wm_total_l
@@ -48,9 +40,12 @@ globals:
     type: uint16_t
     restore_value: no
     initial_value: '0'
+  - id: display_on
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 binary_sensor:
-  # De watermeter puls sensor
   - platform: gpio
     id: wm_pulse_in
     internal: true
@@ -88,7 +83,6 @@ binary_sensor:
               - lambda: 'id(wm_unsaved) = 0;'
         - script.execute: zero_flow_timeout
 
-  # De BOOT-knop voor handmatige correctie
   - platform: gpio
     id: boot_button
     pin:
@@ -101,11 +95,8 @@ binary_sensor:
       - min_length: 50ms
         max_length: 350ms
         then:
-          - lambda: |-
-              id(wm_total_l) += 1ULL;
-              id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
-          - component.update: my_display
-          - logger.log: "Handmatige correctie: +1 liter"
+          - script.execute: display_timeout
+          - logger.log: "Display aan voor 60s"
       - min_length: 800ms
         max_length: 3000ms
         then:
@@ -161,6 +152,15 @@ script:
       - delay: 15s
       - lambda: 'id(wm_flow_lpm).publish_state(0.0f);'
 
+  - id: display_timeout
+    mode: restart
+    then:
+      - lambda: 'id(display_on) = true;'
+      - component.update: my_display
+      - delay: 60s
+      - lambda: 'id(display_on) = false;'
+      - component.update: my_display
+
 i2c:
   sda: GPIO5
   scl: GPIO6
@@ -177,16 +177,20 @@ font:
 button:
   - platform: restart
     name: "Reboot"
-    
 
 display:
   - platform: ssd1306_i2c
     id: my_display
     model: "SSD1306 72x40"
     address: 0x3C
+    brightness: 0.5
     lambda: |-
+      if (!id(display_on)) {
+        it.fill(Color::BLACK);
+        return;
+      }
       float m3 = (float) id(wm_total_l) / 1000.0f;
-      char buf[16]; 
+      char buf[16];
       snprintf(buf, sizeof(buf), "%.3f", m3);
 
       const char *dot = strchr(buf, '.');
@@ -195,7 +199,7 @@ display:
       strncpy(intpart, buf, ilen); intpart[ilen] = '\0';
       strcpy(frac, dot ? dot + 1 : "000");
 
-      int x0 = 10; 
+      int x0 = 10;
       it.filled_rectangle(0, 0, 72, 20, Color::BLACK);
       it.printf(x0, 2, id(f14), Color::WHITE, TextAlign::TOP_LEFT, "%s", intpart);
       it.filled_rectangle(0, 20, 72, 20, Color::WHITE);
