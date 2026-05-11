@@ -6,22 +6,29 @@ esp32:
   framework:
     type: arduino
 
+# web_server:
+#   auth:
+#     username: !secret http_username
+#     password: !secret http_password
+#   port: 80
+#   version: 2
+
 logger:
   level: INFO
 
 api:
   encryption:
-    key: !secret api_key
+    key: !secret tft_watermeter_api_key
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    password: !secret tft_watermeter_ota_password
 
 wifi:
   power_save_mode: none
   min_auth_mode: WPA2
   fast_connect: True
-  reboot_timeout: 90s
+  reboot_timeout: 90s   # reboot als WiFi 90s niet werkt
   networks:
     - ssid: !secret wifi_ssid
       password: !secret wifi_password
@@ -30,6 +37,7 @@ wifi:
     password: ""
 
 captive_portal:
+  
 
 globals:
   - id: wm_total_l
@@ -42,6 +50,7 @@ globals:
     initial_value: '0'
 
 binary_sensor:
+  # De watermeter puls sensor
   - platform: gpio
     id: wm_pulse_in
     internal: true
@@ -79,13 +88,14 @@ binary_sensor:
               - lambda: 'id(wm_unsaved) = 0;'
         - script.execute: zero_flow_timeout
 
+  # De BOOT-knop voor handmatige correctie
   - platform: gpio
     id: boot_button
     pin:
       number: GPIO9
       mode: INPUT_PULLUP
       inverted: true
-    name: "Manual Correction Button"
+    name: "Handmatige Correctie Knop"
     internal: true
     on_click:
       - min_length: 50ms
@@ -95,7 +105,7 @@ binary_sensor:
               id(wm_total_l) += 1ULL;
               id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
           - component.update: my_display
-          - logger.log: "Manual correction: +1 litre"
+          - logger.log: "Handmatige correctie: +1 liter"
       - min_length: 800ms
         max_length: 3000ms
         then:
@@ -105,19 +115,19 @@ binary_sensor:
               }
               id(wm_total_pub_template).publish_state((float)id(wm_total_l) / 1000.0f);
           - component.update: my_display
-          - logger.log: "Manual correction: -1 litre"
+          - logger.log: "Handmatige correctie: -1 liter"
 
 sensor:
   - platform: template
     id: wm_flow_lpm
-    name: "Water flow rate"
+    name: "Water debiet"
     unit_of_measurement: "L/min"
     accuracy_decimals: 2
     update_interval: never
 
   - platform: template
     id: wm_total_pub_template
-    name: "Water meter reading"
+    name: "Watermeter stand"
     unit_of_measurement: "m³"
     device_class: water
     state_class: total_increasing
@@ -127,7 +137,7 @@ sensor:
 
 number:
   - platform: template
-    name: "Water meter correction (m³)"
+    name: "Watermeter correctie (m³)"
     id: wm_correction
     optimistic: true
     restore_value: true
@@ -167,6 +177,7 @@ font:
 button:
   - platform: restart
     name: "Reboot"
+    
 
 display:
   - platform: ssd1306_i2c
@@ -175,7 +186,7 @@ display:
     address: 0x3C
     lambda: |-
       float m3 = (float) id(wm_total_l) / 1000.0f;
-      char buf[16];
+      char buf[16]; 
       snprintf(buf, sizeof(buf), "%.3f", m3);
 
       const char *dot = strchr(buf, '.');
@@ -184,7 +195,7 @@ display:
       strncpy(intpart, buf, ilen); intpart[ilen] = '\0';
       strcpy(frac, dot ? dot + 1 : "000");
 
-      int x0 = 10;
+      int x0 = 10; 
       it.filled_rectangle(0, 0, 72, 20, Color::BLACK);
       it.printf(x0, 2, id(f14), Color::WHITE, TextAlign::TOP_LEFT, "%s", intpart);
       it.filled_rectangle(0, 20, 72, 20, Color::WHITE);

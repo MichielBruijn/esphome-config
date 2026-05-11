@@ -9,19 +9,27 @@ esp32:
 
 logger:
   level: INFO
+  
+# web_server:
+#   auth:
+#     username: !secret http_username
+#     password: !secret http_password
+#   port: 80
+#   version: 2
+
 
 api:
   encryption:
-    key: !secret api_key
-
+    key: !secret deurbel_api_key
+    
 ota:
   - platform: esphome
-    password: !secret ota_password
+    password: !secret deurbel_ota_password
 
 wifi:
   power_save_mode: none
   min_auth_mode: WPA2
-  reboot_timeout: 90s
+  reboot_timeout: 90s   # reboot als WiFi 90s niet werkt
   fast_connect: True
   networks:
     - ssid: !secret wifi_ssid
@@ -43,6 +51,7 @@ switch:
     id: relay
     inverted: true
     restore_mode: ALWAYS_OFF
+    # Dit zorgt voor de automatische 'klik':
     on_turn_on:
       - delay: 500ms
       - switch.turn_off: relay

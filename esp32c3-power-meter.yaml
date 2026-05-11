@@ -1,39 +1,46 @@
 esphome:
   name: esp32c3-power-meter
-
+    
 esp32:
   board: esp32-c3-devkitm-1
   framework:
     type: arduino
 
+# web_server:
+#   auth:
+#     username: !secret http_username
+#     password: !secret http_password
+#   port: 80
+#   version: 2
+
 wifi:
   power_save_mode: none
   fast_connect: True
   min_auth_mode: WPA2
-  reboot_timeout: 90s
+  reboot_timeout: 90s   # reboot als WiFi 90s niet werkt
   networks:
     - ssid: !secret wifi_ssid
       password: !secret wifi_password
   ap:
     ssid: "esphome-power-meter"
     password: ""
-
+    
 captive_portal:
 
 api:
   encryption:
-    key: !secret api_key
+    key: !secret power_meter_api_key
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    password: !secret power_meter_ota_password
 
 logger:
-  level: INFO
+  level: INFO # Even op DEBUG laten staan om te zien of de DSMR component nu werkt
 
 uart:
   id: p1_uart
-  rx_pin:
+  rx_pin: 
     number: GPIO3
     inverted: true
     mode:
@@ -44,6 +51,7 @@ uart:
   parity: EVEN
   rx_buffer_size: 1500
 
+# De officiële DSMR component configureren
 dsmr:
   id: dsmr_instance
   uart_id: p1_uart
@@ -52,17 +60,17 @@ dsmr:
 sensor:
   - platform: dsmr
     energy_delivered_tariff1:
-      name: "Energy delivered low tariff (T1)"
+      name: "Energie Geleverd Laag (T1)"
     energy_delivered_tariff2:
-      name: "Energy delivered high tariff (T2)"
+      name: "Energie Geleverd Hoog (T2)"
     energy_returned_tariff1:
-      name: "Energy returned low tariff (T1)"
+      name: "Energie Teruggeleverd Laag (T1)"
     energy_returned_tariff2:
-      name: "Energy returned high tariff (T2)"
+      name: "Energie Teruggeleverd Hoog (T2)"
     power_delivered:
-      name: "Current power"
+      name: "Actueel Vermogen"
     gas_delivered:
-      name: "Gas consumption"
+      name: "Gas Verbruik"
 
 button:
   - platform: restart
