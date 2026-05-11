@@ -29,7 +29,6 @@ ota:
 wifi:
   power_save_mode: none
   min_auth_mode: WPA2
-  reboot_timeout: 90s   # reboot als WiFi 90s niet werkt
   fast_connect: True
   networks:
     - ssid: !secret wifi_ssid
